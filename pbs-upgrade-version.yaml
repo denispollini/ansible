@@ -1,0 +1,41 @@
+---
+- hosts: pbs
+  become: yes  # Run commands as root
+  tasks:
+
+    - name: Update package list (apt update)
+      apt:
+        update_cache: yes
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
+
+    - name: Run dist-upgrade without interaction
+      apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
+
+    - name: Change repositories from bullseye to bookworm (sources.list)
+      command: sed -i 's/bullseye/bookworm/g' /etc/apt/sources.list
+
+    - name: Find all .list files in /etc/apt/sources.list.d/
+      find:
+        paths: /etc/apt/sources.list.d/
+        patterns: '*.list'
+      register: list_files
+
+    - name: Change repositories from bullseye to bookworm in found files
+      shell: sed -i 's/bullseye/bookworm/g' {{ item.path }}
+      loop: "{{ list_files.files }}"
+
+    - name: Update package list after repository change (apt update)
+      apt:
+        update_cache: yes
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Run dist-upgrade after repository change (apt dist-upgrade)
+      apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive

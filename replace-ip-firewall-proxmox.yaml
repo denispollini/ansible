@@ -1,0 +1,11 @@
+---
+- name: Modify IP in Proxmox firewall file
+  hosts: pve  # Ensure the pve group is defined in your inventory
+  become: yes  # This will execute commands with elevated privileges
+  tasks:
+    - name: Replace IP address in /etc/pve/firewall/cluster.fw
+      lineinfile:
+        path: /etc/pve/firewall/cluster.fw
+        regexp: '192\.168\.1\.1'
+        line: '192.168.0.1 # comment'
+        backup: yes  # Creates a backup copy of the file before modifying it

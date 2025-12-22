@@ -1,0 +1,17 @@
+---
+- name: Modify sshd_config on Proxmox and restart SSH service
+  hosts: pve
+  become: yes  # Run commands as root
+  tasks:
+    - name: Comment out the line Port 2222 and add Port 22
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^Port 2222'
+        line: '#Port 22'
+        state: present
+        backrefs: yes
+
+    - name: Restart SSH service
+      ansible.builtin.systemd:
+        name: sshd   # Service name is 'sshd', not just 'ssh' on some distributions
+        state: restarted

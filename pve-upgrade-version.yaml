@@ -1,0 +1,56 @@
+---
+- hosts: pve
+  become: yes  # Run commands as root
+  tasks:
+
+    - name: Update package list (apt update)
+      apt:
+        update_cache: yes
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
+
+    - name: Run dist-upgrade without interaction
+      apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
+
+    - name: Run pve8to9 --full and check for errors
+      command: pve8to9 --full
+      register: pve_check
+      ignore_errors: yes  # Ignore errors but register them for subsequent logic
+
+    - name: Stop execution if errors are found in pve8to9 --full
+      fail:
+        msg: "The pve8to9 check detected errors. Stopping execution."
+      when: pve_check.rc != 0
+
+    - name: Change repositories from bookworm to trixie (sources.list)
+      command: sed -i 's/bookworm/trixie/g' /etc/apt/sources.list
+      when: pve_check.rc == 0  # Run only if pve8to9 command was successful
+
+    - name: Find all .list files in /etc/apt/sources.list.d/
+      find:
+        paths: /etc/apt/sources.list.d/
+        patterns: '*.list'
+      register: list_files
+      when: pve_check.rc == 0  # Run only if pve8to9 command was successful
+
+    - name: Change repositories from bookworm to trixie in found files
+      shell: sed -i 's/bookworm/trixie/g' {{ item.path }}
+      loop: "{{ list_files.files }}"
+      when: pve_check.rc == 0  # Run only if pve8to9 command was successful
+
+    - name: Update package list after repository change (apt update)
+      apt:
+        update_cache: yes
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: pve_check.rc == 0  # Run only if pve8to9 command was successful
+
+    - name: Run dist-upgrade after repository change (apt dist-upgrade)
+      apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      when: pve_check.rc == 0  # Run only if pve8to9 command was successful

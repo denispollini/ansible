@@ -1,0 +1,16 @@
+---
+- hosts: pve
+  become: yes  # Run commands as root
+  tasks:
+
+    - name: Update package list (apt update)
+      apt:
+        update_cache: yes
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
+
+    - name: Run dist-upgrade without interaction
+      apt:
+        upgrade: dist
+      environment:
+        DEBIAN_FRONTEND: noninteractive  # Set non-interactive mode
