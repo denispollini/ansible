@@ -1,0 +1,38 @@
+---
+- name: Deploy Proxmox Storage Capacity Monitoring Script
+  hosts: pve
+  become: true
+  
+  tasks:
+    - name: Create the storage monitoring script in /usr/local/bin
+      copy:
+        dest: /usr/local/bin/check-storage-space.sh
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          THRESHOLD=80
+          EMAIL=$(cat /etc/pve/user.cfg | awk -F ':' '{print $7}')
+          HOSTNAME=$(hostname)
+          /usr/sbin/pvesm status | grep "active" | tr -d '%' | awk -v limit="$THRESHOLD" '$7 >= limit {print $1, $2, $7}' | while read -r NAME TYPE USAGE; do
+
+              SUBJECT="Storage Alert: '$NAME' ($TYPE) at $USAGE% on $HOSTNAME"
+              BODY="WARNING: Storage '$NAME' (Type: $TYPE) on server $HOSTNAME has reached $USAGE% capacity.
+
+          Details:
+          Storage Name: $NAME
+          Storage Type: $TYPE
+          Current Usage: $USAGE%
+          Threshold: $THRESHOLD%
+
+          Recommended action: Free up space, delete old snapshots/backups, or add capacity soon."
+
+              echo "$BODY" | mail -s "$SUBJECT" "$EMAIL"
+          done
+
+    - name: Schedule the script to run hourly via Cron
+      cron:
+        name: "Proxmox storage capacity check"
+        minute: "0"
+        job: "/usr/local/bin/check-storage-space.sh"
